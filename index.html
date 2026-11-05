@@ -439,6 +439,7 @@ function dpad(onDir){
 
 /* ---------- GAME REGISTRY ---------- */
 const GAMES=[
+{id:'tag',ic:'🏃',nm:'Tag Arena',ds:'Chase and tag — live with friends, or vs bots.',score:0,run:gTag},
 {id:'snake',ic:'🐍',nm:'Snake',ds:'Eat, grow, don\'t crash.',score:1,run:gSnake},
 {id:'breakout',ic:'🧱',nm:'Breakout',ds:'Smash every brick.',score:1,run:gBreakout},
 {id:'pong',ic:'🏓',nm:'Pong',ds:'First to 5 beats the AI.',score:0,run:gPong},
@@ -871,6 +872,78 @@ function gSlide(host){
 let appIntervals=[];
 function setAppInterval(fn,ms){const id=setInterval(fn,ms);appIntervals.push(id);return id;}
 function onKeysUp(fn){window.addEventListener('keyup',fn);return ()=>window.removeEventListener('keyup',fn);}
+
+/* --- analog joystick for touch --- */
+function joystick(onVec){
+  const base=el('div');base.style.cssText='width:120px;height:120px;border-radius:50%;background:#121b31;border:1px solid var(--line);position:relative;touch-action:none;margin:8px auto;flex:0 0 auto';
+  const nub=el('div');nub.style.cssText='width:50px;height:50px;border-radius:50%;background:var(--accent);position:absolute;left:35px;top:35px';base.appendChild(nub);
+  let active=false;const MAX=35;
+  function set(e){const r=base.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const d=Math.hypot(dx,dy);if(d>MAX){dx=dx/d*MAX;dy=dy/d*MAX;}nub.style.left=(35+dx)+'px';nub.style.top=(35+dy)+'px';onVec(dx/MAX,dy/MAX);}
+  base.onpointerdown=e=>{active=true;try{base.setPointerCapture(e.pointerId);}catch(_){}set(e);};
+  base.onpointermove=e=>{if(active)set(e);};
+  base.onpointerup=base.onpointercancel=base.onpointerleave=()=>{active=false;nub.style.left='35px';nub.style.top='35px';onVec(0,0);};
+  return base;
+}
+
+/* --- Tag Arena (live multiplayer with friends, or vs bots) --- */
+function gTag(host){
+  const SZ=360,R=0.034,SPEED=0.0062,TAGR=0.062,GRACE=1200;
+  const c=mkcanvas(SZ,SZ),x=c.getContext('2d');
+  const info=scoreBar('Loading…');
+  host.append(info,c,el('div','tiny','You’re it = chase people. Move with WASD / arrows / the stick.'));
+  let kx=0,ky=0,jx=0,jy=0;
+  host.append(joystick((vx,vy)=>{jx=vx;jy=vy;}));
+  const off=onKeys(e=>{const k=e.key.toLowerCase();if(k==='arrowup'||k==='w')ky=-1;else if(k==='arrowdown'||k==='s')ky=1;else if(k==='arrowleft'||k==='a')kx=-1;else if(k==='arrowright'||k==='d')kx=1;else return;e.preventDefault();});
+  const offu=onKeysUp(e=>{const k=e.key.toLowerCase();if(k==='arrowup'||k==='w'||k==='arrowdown'||k==='s')ky=0;if(k==='arrowleft'||k==='a'||k==='arrowright'||k==='d')kx=0;});
+  const PAL=['#4b7bff','#ff5c7a','#36d399','#ffcf5c','#b45cff','#2bd1c9','#ff9e3a','#ff5c9e'];
+  const myColor=PAL[rnd(PAL.length)];const myName=(me&&me.u)||'Player';
+  let me2={x:0.5,y:0.85,t:0},room=null,roomMode=false,peers=[],bots=[],raf,presT=0;
+  function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+  function nearest(from,list){let best=list[0],bd=1e9;list.forEach(p=>{const d=dist(from,p);if(d<bd){bd=d;best=p;}});return best;}
+  function makeBots(n){bots=[];const nm=['Zip','Bolt','Dash','Nova','Echo'];for(let i=0;i<n;i++)bots.push({x:Math.random(),y:Math.random(),vx:0,vy:0,t:0,name:nm[i%nm.length],color:PAL[(i+2)%PAL.length],wob:Math.random()*7});}
+  function soloInit(){makeBots(3);bots[rnd(bots.length)].t=Date.now();}
+  soloInit();
+  (async()=>{try{if(window.claude&&window.claude.use){const lobby=await window.claude.use('room');if(lobby){const r=await lobby.join('tag-arena');room=r;r.onPeers(ch=>{peers=ch.peers;});roomMode=true;}}}catch(e){room=null;roomMode=false;}})();
+  function humans(){return peers.filter(p=>p.presence&&typeof p.presence.x==='number').map(p=>({peer:p.peer,isMe:p.sameTab,x:p.presence.x,y:p.presence.y,t:p.presence.t||0,name:p.presence.name||'Player',color:p.presence.color||'#8899bb'}));}
+  function live(){return roomMode&&humans().filter(h=>!h.isMe).length>=1;}
+  function step(){
+    let vx=Math.max(-1,Math.min(1,kx+jx)),vy=Math.max(-1,Math.min(1,ky+jy));const mag=Math.hypot(vx,vy);if(mag>1){vx/=mag;vy/=mag;}
+    me2.x=Math.max(R,Math.min(1-R,me2.x+vx*SPEED));me2.y=Math.max(R,Math.min(1-R,me2.y+vy*SPEED));
+    const now=Date.now();
+    if(live()){
+      bots=[];const hs=humans();const meH=hs.find(h=>h.isMe);if(meH){meH.x=me2.x;meH.y=me2.y;meH.t=me2.t;}
+      let it=hs.reduce((a,b)=>b.t>(a?a.t:0)?b:a,null);
+      if(!it||it.t===0){const low=hs.slice().sort((a,b)=>String(a.peer).localeCompare(String(b.peer)))[0];if(low&&low.isMe)me2.t=now;}
+      else if(!it.isMe&&dist(me2,it)<TAGR&&now-it.t>GRACE){const others=hs.filter(h=>h.peer!==it.peer).sort((a,b)=>dist(a,it)-dist(b,it)||String(a.peer).localeCompare(String(b.peer)));if(others[0]&&others[0].isMe)me2.t=now;}
+      if(room&&now-presT>50){presT=now;room.presence({x:me2.x,y:me2.y,t:me2.t,name:myName,color:myColor}).catch(()=>{});}
+    } else {
+      const all=[{x:me2.x,y:me2.y,t:me2.t,me:true},...bots];let it=all.reduce((a,b)=>b.t>a.t?b:a,all[0]);
+      bots.forEach(b=>{const amIt=(b===it);let tx,ty;if(amIt){const tg=nearest(b,all.filter(z=>z!==b));tx=tg.x-b.x;ty=tg.y-b.y;}else{tx=b.x-it.x;ty=b.y-it.y;}const m=Math.hypot(tx,ty)||1;b.wob+=0.1;b.x=Math.max(R,Math.min(1-R,b.x+(tx/m+Math.cos(b.wob)*0.25)*SPEED*0.92));b.y=Math.max(R,Math.min(1-R,b.y+(ty/m+Math.sin(b.wob)*0.25)*SPEED*0.92));});
+      if(it.me){for(const b of bots){if(dist(me2,b)<TAGR&&now-me2.t>GRACE){b.t=now;break;}}}
+      else{if(dist(me2,it)<TAGR&&now-it.t>GRACE)me2.t=now;for(const b of bots){if(b!==it&&dist(b,it)<TAGR&&now-it.t>GRACE){b.t=now;break;}}}
+    }
+    draw();raf=requestAnimationFrame(step);
+  }
+  function draw(){
+    x.fillStyle='#0a1326';x.fillRect(0,0,SZ,SZ);x.strokeStyle='#1c2742';x.lineWidth=2;x.strokeRect(4,4,SZ-8,SZ-8);
+    let players;
+    if(live()){const hs=humans();const m=hs.find(h=>h.isMe);if(m){m.x=me2.x;m.y=me2.y;m.t=me2.t;}let it=hs.reduce((a,b)=>b.t>(a?a.t:0)?b:a,null);
+      players=hs.map(h=>({x:h.x,y:h.y,name:h.name,color:h.color,it:!!(it&&h.peer===it.peer&&it.t>0),me:h.isMe}));
+      const itp=players.find(p=>p.it);info.innerHTML='🟢 Live · <b>'+hs.length+'</b> playing'+(itp?' · <b>'+itp.name+'</b> is IT':'');
+    } else {
+      const all=[{x:me2.x,y:me2.y,t:me2.t,name:myName,color:myColor,me:true},...bots.map(b=>({x:b.x,y:b.y,t:b.t,name:b.name,color:b.color}))];let it=all.reduce((a,b)=>b.t>a.t?b:a,all[0]);
+      players=all.map(p=>({x:p.x,y:p.y,name:p.name,color:p.color,it:p===it&&it.t>0,me:p.me}));
+      const itp=players.find(p=>p.it);info.innerHTML=(roomMode?'🟡 Waiting for friends to join · ':'🤖 Solo vs bots · ')+(itp?'<b>'+itp.name+'</b> is IT':'');
+    }
+    players.forEach(p=>{const X=p.x*SZ,Y=p.y*SZ,r=R*SZ;
+      if(p.it){x.beginPath();x.arc(X,Y,r+6,0,7);x.fillStyle='rgba(255,92,122,.22)';x.fill();}
+      x.beginPath();x.arc(X,Y,r,0,7);x.fillStyle=p.color;x.fill();
+      if(p.it){x.lineWidth=3;x.strokeStyle='#ff5c7a';x.stroke();}if(p.me){x.lineWidth=2;x.strokeStyle='#fff';x.stroke();}
+      x.fillStyle='#dce6ff';x.font='bold 11px system-ui';x.textAlign='center';x.fillText((p.it?'👑 ':'')+p.name+(p.me?' (you)':''),X,Y-r-5);});
+  }
+  step();
+  return ()=>{cancelAnimationFrame(raf);off();offu();if(room){try{room.leave();}catch(e){}}};
+}
 
 /* --- Block Stack (falling blocks) --- */
 function gBlocks(host){
