@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "main": "server.mjs",
   "engines": {
     "node": "22.x"
   },
   "scripts": {
-    "start": "node start.mjs"
+    "start": "node server.mjs"
   }
 }
