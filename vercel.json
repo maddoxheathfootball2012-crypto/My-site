@@ -1,0 +1,14 @@
+{
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": "{app.ebaad,config.json,public.pem,server.mjs}",
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index?__path=$1" }
+  ]
+}
