@@ -1,8 +1,7 @@
 {
-  "buildCommand": "",
   "outputDirectory": "public",
   "functions": {
-    "api/index.mjs": {
+    "api/index.js": {
       "includeFiles": "{app.ebaad,config.json,public.pem,server.mjs}",
       "maxDuration": 30
     }
