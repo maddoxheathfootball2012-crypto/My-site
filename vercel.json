@@ -2,7 +2,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{app.ebaad,config.json,public.pem,server.mjs}",
+      "includeFiles": "{app.ebaad,config.json,public.pem,ebaad-runtime.mjs}",
       "maxDuration": 30
     }
   },

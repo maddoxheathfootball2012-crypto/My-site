@@ -1,7 +1,7 @@
 // Long-running server entry point (Render, Railway, or `npm start` on any computer).
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EbaadRuntime } from './server.mjs';
+import { EbaadRuntime } from './ebaad-runtime.mjs';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT) || 8080;

@@ -1,8 +1,8 @@
-// Vercel entry point: starts the EBAAD runtime from server.mjs and serves every
+// Vercel entry point: starts the EBAAD runtime from ebaad-runtime.mjs and serves every
 // request through it. The locked app.ebaad package is used exactly as shipped.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EbaadRuntime } from '../server.mjs';
+import { EbaadRuntime } from '../ebaad-runtime.mjs';
 
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
