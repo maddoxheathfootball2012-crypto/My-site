@@ -1415,11 +1415,16 @@ function renderAdmin(v){
 
 /* ============ POPUP ============ */
 function showPop(a){
-  if(!a)return;const box=$('#popbox');
+  if(!a)return;
+  const KEYS='ABCDEFGHJKLMNPQRSTUVWXYZ';const key=KEYS[Math.floor(Math.random()*KEYS.length)];
+  const box=$('#popbox');
   box.innerHTML=(a.img?`<img src="${esc(a.img)}" alt="" onerror="this.style.display='none'">`:'')+
-    `<div class="pc">${a.title?`<h3>${esc(a.title)}</h3>`:''}${a.msg?`<p>${esc(a.msg)}</p>`:''}<button class="btn primary" id="popclose">Close</button><div class="tiny" style="margin-top:8px">from ${esc(a.by||'admin')}</div></div>`;
+    `<div class="pc">${a.title?`<h3>${esc(a.title)}</h3>`:''}${a.msg?`<p>${esc(a.msg)}</p>`:''}<button class="btn primary" id="popclose">Press <b style="font-size:18px">${key}</b> to close</button><div class="tiny" style="margin-top:8px">a random key each time · from ${esc(a.by||'admin')}</div></div>`;
   $('#pop').classList.add('on');
-  $('#popclose').onclick=()=>$('#pop').classList.remove('on');
+  function done(){window.removeEventListener('keydown',onk);$('#pop').classList.remove('on');}
+  function onk(e){if(e.key&&e.key.toUpperCase()===key)done();}
+  window.addEventListener('keydown',onk);
+  $('#popclose').onclick=done;
 }
 
 /* ---------- utils ---------- */
